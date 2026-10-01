@@ -24,13 +24,24 @@ ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-COPY backend/requirements.txt ./requirements.txt
+# Create a dedicated non-root system account with an explicit, reproducible
+# UID/GID (1001) before any application files are copied.  Explicit IDs
+# prevent the account from silently getting a different numeric ID on a
+# fresh image rebuild and make permission auditing straightforward.
+RUN groupadd --gid 1001 appuser \
+ && useradd --uid 1001 --gid 1001 --no-create-home --shell /sbin/nologin appuser
 
+# Install dependencies as root — pip needs write access to site-packages.
+COPY backend/requirements.txt ./requirements.txt
 RUN python -m pip install --no-cache-dir -r requirements.txt
 
-COPY backend/app ./app
+# Copy application files with the correct owner so no extra chown layer is
+# required and the filesystem is already in the correct state before USER.
+COPY --chown=appuser:appuser backend/app ./app
+COPY --chown=appuser:appuser --from=frontend-build /build/frontend/dist ./static
 
-COPY --from=frontend-build /build/frontend/dist ./static
+# Drop to non-root for all subsequent layers and the runtime process.
+USER appuser
 
 
 # ---------------------------------------------------------
