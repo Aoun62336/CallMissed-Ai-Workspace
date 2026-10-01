@@ -38,18 +38,20 @@ RUN apt-get update \
  && apt-get upgrade -y \
  && rm -rf /var/lib/apt/lists/*
 
-# Upgrade Python packages that ship with the base image but carry known
-# HIGH-severity CVEs with available fixes.  These are system-level packages
-# (pre-installed by the base image), not application dependencies.
-RUN pip install --no-cache-dir \
-    "msgpack>=1.2.1" \
-    "setuptools>=78.1.1" \
-    "urllib3>=2.8.0"
-
 # Install application dependencies as root — pip needs write access to
 # site-packages.
 COPY backend/requirements.txt ./requirements.txt
 RUN python -m pip install --no-cache-dir -r requirements.txt
+
+# Upgrade packages with known HIGH-severity CVEs to their fixed versions.
+# This runs AFTER requirements.txt so the fixed versions are the final
+# state and cannot be downgraded by a transitive dependency resolution.
+# These versions are also pinned in requirements.txt so the repo-level
+# Trivy FS scan agrees with what is actually installed in the image.
+RUN pip install --no-cache-dir \
+    "msgpack>=1.2.1" \
+    "setuptools>=82.0.1" \
+    "urllib3>=2.8.0"
 
 # Copy application files with the correct owner so no extra chown layer is
 # required and the filesystem is already in the correct state before USER.
