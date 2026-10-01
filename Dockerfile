@@ -38,6 +38,13 @@ RUN apt-get update \
  && apt-get upgrade -y \
  && rm -rf /var/lib/apt/lists/*
 
+# Upgrade pip itself first so its embedded bom.cdx.json (which Trivy
+# scans as a CycloneDX SBOM) references the latest vendor package
+# versions.  Without this, Trivy reads the pip-bundled SBOM and reports
+# CVEs for the old vendor copies (msgpack 1.1.2, setuptools 70.3.0,
+# urllib3 2.7.0) even though the installed runtime packages are patched.
+RUN pip install --no-cache-dir --upgrade pip
+
 # Install application dependencies as root — pip needs write access to
 # site-packages.
 COPY backend/requirements.txt ./requirements.txt
