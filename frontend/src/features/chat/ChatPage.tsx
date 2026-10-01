@@ -1,14 +1,14 @@
-import { FormEvent, KeyboardEvent, useMemo, useRef, useState } from 'react';
+import { FormEvent, KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { api, errorText } from '../../lib/api';
-import { CopyIcon, PlusIcon, SendIcon } from '../../lib/icons';
+import { CopyIcon, DownloadIcon, PlusIcon, SendIcon } from '../../lib/icons';
 
 type Message = { role: 'user' | 'assistant'; content: string };
 type ChatResponse = { answer: string; elapsed_ms: number };
 
 const EXAMPLES = [
-  'Explain Docker in simple words.',
-  'What is the difference between a container and a virtual machine?',
-  'Give me three practical uses of AI assistants.',
+  'Explain how Large Language Models work in simple terms.',
+  'What are the key differences between REST and GraphQL APIs?',
+  'Give me three best practices for production-ready Docker containers.',
 ];
 
 export function ChatPage() {
@@ -19,6 +19,7 @@ export function ChatPage() {
   const [lastElapsed, setLastElapsed] = useState<number | null>(null);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const textarea = useRef<HTMLTextAreaElement>(null);
+  const conversationEnd = useRef<HTMLDivElement>(null);
   const remaining = 2000 - draft.length;
   const contextCount = Math.min(messages.length, 10);
   const canSend = draft.trim().length > 0 && !busy;
@@ -28,6 +29,11 @@ export function ChatPage() {
     for (let i = messages.length - 1; i >= 0; i -= 1) if (messages[i].role === 'assistant') return i;
     return -1;
   }, [messages]);
+
+  // Auto-scroll to the latest message whenever messages or busy state changes.
+  useEffect(() => {
+    conversationEnd.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [messages, busy]);
 
   async function send() {
     const content = draft.trim();
@@ -74,6 +80,19 @@ export function ChatPage() {
     }
   }
 
+  function downloadChat() {
+    const lines = messages
+      .map(m => `${m.role === 'user' ? 'You' : 'AI Assistant'}: ${m.content}`)
+      .join('\n\n');
+    const blob = new Blob([lines], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'chat-history.txt';
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
   function newChat() {
     setMessages([]); setDraft(''); setError(''); setLastElapsed(null); setCopiedIndex(null);
     requestAnimationFrame(() => textarea.current?.focus());
@@ -82,12 +101,16 @@ export function ChatPage() {
   return <>
     <div className="page-title">
       <div><h1>Chat</h1><p className="sub">Ask questions and continue the conversation with temporary browser history.</p></div>
-      <button className="btn" onClick={newChat} disabled={empty && !draft}><PlusIcon/>New chat</button>
+      <div className="page-actions">
+        {!empty && <button className="btn" onClick={downloadChat} title="Export conversation"><DownloadIcon/>Export</button>}
+        <button className="btn" onClick={newChat} disabled={empty && !draft}><PlusIcon/>New chat</button>
+      </div>
     </div>
 
     <section className="panel chat" aria-label="AI chat">
       <div className="chat-top">
-        {empty ? 'Start a new conversation' : `${messages.length} message${messages.length === 1 ? '' : 's'} · up to ${contextCount} recent messages reused as context`}
+        <span>{empty ? 'Start a new conversation' : `${messages.length} message${messages.length === 1 ? '' : 's'} · up to ${contextCount} recent messages reused as context`}</span>
+        <span className="model-badge">sarvam-105b-conversations</span>
       </div>
       <div className={`conversation ${empty ? 'conversation-empty' : ''}`} aria-live="polite">
         {empty ? <div className="empty-state">
@@ -104,13 +127,15 @@ export function ChatPage() {
           {index === latestAssistant && lastElapsed !== null && <span className="measured">Response time: {(lastElapsed / 1000).toFixed(2)} s</span>}
         </div>)}
         {busy && <div className="message assistant pending-message"><div className="byline"><span className="assistant-dot">AI</span>AI assistant</div><div className="typing" aria-label="Generating response"><span/><span/><span/></div></div>}
+        {/* Sentinel element — scrolled into view after each reply. */}
+        <div ref={conversationEnd} />
       </div>
       {error && <div className="inline-error chat-error" role="alert">{error}</div>}
       <form className="composer" onSubmit={submit}>
         <label className="field-label" htmlFor="message">Your message</label>
         <textarea ref={textarea} id="message" value={draft} maxLength={2000} onChange={event => setDraft(event.target.value)} onKeyDown={keyboard} placeholder="Ask a question…" aria-describedby="composer-help" disabled={busy}/>
         <div className="composer-footer">
-          <span className="hint" id="composer-help">Enter to send · Shift+Enter for a new line · {remaining.toLocaleString()} characters left</span>
+          <span className={`hint${remaining < 100 ? ' hint-warn' : ''}`} id="composer-help">Enter to send · Shift+Enter for a new line · {remaining.toLocaleString()} characters left</span>
           <button className="btn primary" type="submit" disabled={!canSend}><SendIcon/>{busy ? 'Sending…' : 'Send message'}</button>
         </div>
       </form>

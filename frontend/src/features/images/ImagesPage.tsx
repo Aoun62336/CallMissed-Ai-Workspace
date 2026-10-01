@@ -4,8 +4,16 @@ import { DownloadIcon, ImageIcon } from '../../lib/icons';
 
 type ImageResponse = { image: string; mime: string; image_bytes: number; elapsed_ms: number };
 
+const STYLE_PRESETS: Array<{ label: string; value: string }> = [
+  { label: 'Photorealistic', value: 'photorealistic, high detail, DSLR quality' },
+  { label: 'Watercolour',    value: 'watercolour painting, soft edges, artistic' },
+  { label: 'Minimalist',     value: 'minimalist, flat design, clean lines' },
+  { label: 'Cinematic',      value: 'cinematic lighting, dramatic shadows' },
+];
+
 export function ImagesPage() {
   const [prompt, setPrompt] = useState('');
+  const [selectedStyle, setSelectedStyle] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [imageUrl, setImageUrl] = useState('');
@@ -28,16 +36,18 @@ export function ImagesPage() {
     event.preventDefault();
     const clean = prompt.trim();
     if (!clean || busy) return;
+    // Append the selected style modifier, if any, before sending.
+    const fullPrompt = selectedStyle ? `${clean}, ${selectedStyle}` : clean;
     setBusy(true); setError('');
     try {
       const result = await api<ImageResponse>('/api/images', {
-        method: 'POST', body: JSON.stringify({ prompt: clean }),
+        method: 'POST', body: JSON.stringify({ prompt: fullPrompt }),
       });
       const blob = decodeBase64(result.image, result.mime);
       if (imageUrl) URL.revokeObjectURL(imageUrl);
       setImageBlob(blob);
       setImageUrl(URL.createObjectURL(blob));
-      setUsedPrompt(clean);
+      setUsedPrompt(fullPrompt);
       setElapsed(result.elapsed_ms);
       setBytes(result.image_bytes);
     } catch (reason) {
@@ -66,6 +76,22 @@ export function ImagesPage() {
         <label className="field-label field-space" htmlFor="image-prompt">Image prompt</label>
         <textarea id="image-prompt" value={prompt} maxLength={1000} onChange={event => setPrompt(event.target.value)} placeholder="A small green tree on a plain white background." aria-describedby="image-help" disabled={busy}/>
         <p className="hint" id="image-help">One 1024×1024 image per request · {remaining.toLocaleString()} characters left.</p>
+        <div className="style-presets">
+          <span className="field-label">Style preset</span>
+          <div className="preset-grid">
+            {STYLE_PRESETS.map(p => (
+              <button
+                key={p.value}
+                type="button"
+                className={`preset-btn${selectedStyle === p.value ? ' preset-btn-active' : ''}`}
+                onClick={() => setSelectedStyle(s => s === p.value ? '' : p.value)}
+                disabled={busy}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
         <button className="btn primary" disabled={busy || !prompt.trim()}>{busy ? <><span className="spinner"/>Generating…</> : <><ImageIcon/>Generate image</>}</button>
       </form>
 
