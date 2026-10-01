@@ -120,6 +120,11 @@ jobs:
           tags: callmissed-ai-workspace:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          # Disable BuildKit provenance attestation so the image does not carry
+          # an embedded third-party SBOM.  That SBOM is a snapshot of the base
+          # image layers (pre pip-upgrade) and causes Trivy to report already-
+          # patched package versions as still vulnerable.
+          provenance: false
 
       - name: Start container
         run: |
