@@ -13,5 +13,3 @@ local-results/
 **/.ruff_cache/
 .coverage
 backend/.env
-docs/
-AGENTS.md

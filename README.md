@@ -1,51 +1,35 @@
 # CallMissed AI Workspace
 
-Independent CallMissed internship-assessment application by Aoun Md.
+A web application that exposes three CallMissed AI features through a responsive React interface backed by a FastAPI service.
 
-The application provides three reviewer-facing features: **Chat, Images and Voice**. Stage 1 verified the real CallMissed integrations locally. Stage 2 froze the API contracts and AWS hosting decision. Stage 3 replaces the temporary integration harness with the actual responsive React interface and production-oriented FastAPI contracts.
+## Features
 
-## Current status
+- **Chat** — multi-turn text conversation using `sarvam-105b-conversations`
+- **Images** — single image generation and download using `sdxl-lightning`
+- **Voice** — browser microphone conversation with mute/unmute and explicit session termination
 
-- Stage 1 real provider proof: Chat, image generation and browser voice worked locally.
-- Stage 2: application contracts and AWS Lambda Function URL hosting direction frozen.
-- Stage 3 source implementation: complete.
-- Backend mocked suite: **17 passed**.
-- Frontend TypeScript check: **passed**.
-- Stage 3 real browser/provider re-verification on Aoun's Windows laptop: pending.
-- Docker, GitHub Actions, Terraform and AWS deployment: next after Stage 3 verification.
+## Requirements
 
-Read:
+- Python 3.13
+- Node.js 22
+- Docker (for container builds)
 
-- `docs/STAGE_2_DECISIONS.md` — hosting/contracts decision.
-- `docs/STAGE_3_IMPLEMENTATION.md` — what Stage 3 changed and exact acceptance checks.
-- `docs/START_HERE.md` — local run steps.
-- `docs/RESULTS.md` — verified evidence only.
-- `docs/ROADMAP.md` — remaining delivery sequence.
+## Local development
 
-## Application routes
-
-- `/chat` — temporary multi-turn text conversation.
-- `/images` — one image generation and local download.
-- `/voice` — browser microphone conversation, mute/unmute and explicit termination.
-
-No permanent database/history, CRM, phone calling, billing, admin dashboard, RAG or fabricated system metrics are included.
-
-## Local setup
-
-Backend:
+### Backend
 
 ```bash
 cd backend
-py -3 -m venv .venv
-source .venv/Scripts/activate
-python -m pip install -r requirements.txt
-cp -n .env.example .env
-# Edit .env manually and enter the real CALLMISSED_API_KEY privately.
+python -m venv .venv
+source .venv/Scripts/activate   # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+cp .env.example .env
+# Fill in CALLMISSED_API_KEY in .env
 python -m pytest -q
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-Frontend in another terminal:
+### Frontend
 
 ```bash
 cd frontend
@@ -53,20 +37,49 @@ npm ci
 npm run dev
 ```
 
-Open `http://127.0.0.1:5173/chat`.
+Open `http://127.0.0.1:5173/chat`. The Vite dev server proxies `/api` and `/health` to FastAPI.
 
-Before moving on, also run:
+## Running with Docker
 
 ```bash
-npm run build
+cp backend/.env.example backend/.env
+# Fill in CALLMISSED_API_KEY in backend/.env
+docker compose up --build
 ```
 
-## Secret boundary
+Open `http://127.0.0.1:8000/chat`.
 
-The CallMissed credential belongs only in `backend/.env` locally and a server-side secret store in deployment. Do not put it in Vite variables, browser code, Git, Docker build arguments, Terraform state or screenshots.
+## Tests
 
-The clean Stage 3 package intentionally contains no `.env`, `.venv`, `node_modules`, `dist` or `.git` directory.
+```bash
+cd backend
+python -m pytest -q   # 17 tests, all mocked — no provider credentials required
+```
 
-## Deployment direction
+## Configuration
 
-Stage 2 selected an AWS Lambda container image exposed by a Lambda Function URL, with ECR, Terraform, runtime secrets, CloudWatch logs and an application reviewer gate. No cloud resource is created by Stage 3.
+Copy `backend/.env.example` to `backend/.env` and set:
+
+| Variable | Description |
+|----------|-------------|
+| `CALLMISSED_API_KEY` | Provider API key (required) |
+| `CALLMISSED_CHAT_MODEL` | Chat model — default `sarvam-105b-conversations` |
+| `CALLMISSED_IMAGE_MODEL` | Image model — default `sdxl-lightning` |
+| `APP_ENV` | `local` for development, `production` for deployment |
+| `REVIEWER_GATE_ENABLED` | `false` locally, `true` in production |
+| `APP_SESSION_SECRET` | Session signing secret (generated automatically if blank locally) |
+
+The API key stays server-side only. It is never placed in Vite environment variables, browser code, Docker build arguments or Git.
+
+## CI
+
+GitHub Actions runs on every push and pull request to `main`:
+
+- Backend lint (`ruff`) and tests (`pytest`)
+- Frontend type-check and production build
+- Repository security scan (Trivy)
+- Container build, smoke-test and image security scan
+
+## Deployment
+
+AWS Lambda container image + Lambda Function URL (`ap-south-1`), served from ECR. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for API contracts, error handling, secrets management and infrastructure settings.
