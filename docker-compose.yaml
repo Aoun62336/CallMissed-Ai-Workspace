@@ -1,0 +1,15 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    image: callmissed-ai-workspace:local
+
+    env_file:
+      - backend/.env
+
+    ports:
+      - "8000:8000"
+
+    restart: unless-stopped

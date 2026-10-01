@@ -1,0 +1,17 @@
+.env
+.env.*
+!.env.example
+**/.venv/
+**/__pycache__/
+**/.pytest_cache/
+**/node_modules/
+**/dist/
+*.log
+*.tfstate*
+**/.terraform/
+local-results/
+**/.ruff_cache/
+.coverage
+backend/.env
+docs/
+AGENTS.md

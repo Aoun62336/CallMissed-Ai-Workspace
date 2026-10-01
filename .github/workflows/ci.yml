@@ -1,0 +1,180 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+
+  pull_request:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@v7.0.0
+        with:
+          python-version-file: .python-version
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+
+      - name: Install backend dependencies
+        run: python -m pip install --disable-pip-version-check -r requirements-dev.txt
+
+      - name: Lint backend
+        run: ruff check app tests
+
+      - name: Run backend tests
+        run: python -m pytest -q
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Type-check and build frontend
+        run: npm run build
+
+  security:
+    name: Repository Security
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Scan repository
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          severity: CRITICAL,HIGH
+          scanners: vuln,secret,misconfig
+
+  container:
+    name: Container
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    needs:
+      - backend
+      - frontend
+      - security
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4.4.1
+
+      - name: Build application image
+        uses: docker/build-push-action@v7.4.0
+        with:
+          context: .
+          push: false
+          load: true
+          tags: callmissed-ai-workspace:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Start container
+        run: |
+          docker run -d \
+            --name callmissed-ci \
+            -e CALLMISSED_API_KEY=ci-placeholder \
+            -e CALLMISSED_CHAT_MODEL=sarvam-105b-conversations \
+            -e CALLMISSED_IMAGE_MODEL=sdxl-lightning \
+            -e APP_ENV=local \
+            -e REVIEWER_GATE_ENABLED=false \
+            -p 8000:8000 \
+            callmissed-ai-workspace:ci
+
+      - name: Wait for application
+        run: |
+          ready=0
+
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8000/health/live > /dev/null; then
+              ready=1
+              break
+            fi
+
+            sleep 1
+          done
+
+          if [ "$ready" -ne 1 ]; then
+            echo "Application did not become healthy."
+            docker logs callmissed-ci
+            exit 1
+          fi
+
+      - name: Verify health endpoints
+        run: |
+          curl -fsS http://127.0.0.1:8000/health/live
+          echo
+          curl -fsS http://127.0.0.1:8000/health/ready
+          echo
+
+      - name: Verify frontend route
+        run: |
+          curl -fsS http://127.0.0.1:8000/chat > /dev/null
+
+      - name: Scan container image
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: callmissed-ai-workspace:ci
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          severity: CRITICAL,HIGH
+          scanners: vuln
+
+      - name: Stop container
+        if: always()
+        run: |
+          docker logs callmissed-ci || true
+          docker rm -f callmissed-ci || true
