@@ -1,0 +1,6 @@
+github_owner      = "Aoun62336"
+github_repository = "CallMissed-Ai-Workspace"
+
+# Leave null unless this AWS account already has
+# GitHub's OIDC provider configured.
+github_oidc_provider_arn = null
