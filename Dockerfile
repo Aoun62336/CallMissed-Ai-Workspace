@@ -31,7 +31,23 @@ WORKDIR /app
 RUN groupadd --gid 1001 appuser \
  && useradd --uid 1001 --gid 1001 --no-create-home --shell /sbin/nologin appuser
 
-# Install dependencies as root — pip needs write access to site-packages.
+# Apply all available Debian security patches in a single layer.
+# This resolves OS-level CVEs (libpcre2, openssl) that ship in python:3.13-slim
+# but lag behind the upstream Debian security feed.
+RUN apt-get update \
+ && apt-get upgrade -y \
+ && rm -rf /var/lib/apt/lists/*
+
+# Upgrade Python packages that ship with the base image but carry known
+# HIGH-severity CVEs with available fixes.  These are system-level packages
+# (pre-installed by the base image), not application dependencies.
+RUN pip install --no-cache-dir \
+    "msgpack>=1.2.1" \
+    "setuptools>=78.1.1" \
+    "urllib3>=2.8.0"
+
+# Install application dependencies as root — pip needs write access to
+# site-packages.
 COPY backend/requirements.txt ./requirements.txt
 RUN python -m pip install --no-cache-dir -r requirements.txt
 
