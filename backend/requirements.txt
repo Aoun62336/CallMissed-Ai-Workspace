@@ -22,7 +22,7 @@ python-dotenv==1.2.3
 # setuptools>=82.0.1 resolves CVE-2025-47273 (path traversal in PackageIndex)
 # and also upgrades the internal vendor copies of jaraco.context to >=6.1.0
 # (CVE-2026-23949) and wheel to >=0.46.2 (CVE-2026-24049).
-setuptools==82.0.1
+setuptools==83.0.0
 starlette==1.7.0
 typing-inspection==0.4.4
 typing_extensions==4.16.0
