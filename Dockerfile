@@ -19,8 +19,22 @@ RUN npm run build
 # ---------------------------------------------------------
 FROM python:3.13-slim AS runtime
 
+# Copy the Lambda Web Adapter binary from the official AWS public ECR image.
+# This extension intercepts Lambda invocations and proxies them as plain HTTP
+# requests to uvicorn on PORT=8000, so the same container image runs locally
+# as a normal Docker container and on Lambda without any route rewrites.
+COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:1.0.1 \
+    /lambda-adapter \
+    /opt/extensions/lambda-adapter
+
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+# Lambda Web Adapter configuration — must match the uvicorn --port value.
+ENV PORT=8000
+ENV AWS_LWA_PORT=8000
+ENV AWS_LWA_READINESS_CHECK_PATH=/health/live
+ENV AWS_LWA_READINESS_CHECK_HEALTHY_STATUS=200-399
+ENV AWS_LWA_INVOKE_MODE=buffered
 
 WORKDIR /app
 

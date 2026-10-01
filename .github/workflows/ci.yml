@@ -183,3 +183,28 @@ jobs:
         run: |
           docker logs callmissed-ci || true
           docker rm -f callmissed-ci || true
+
+  infrastructure:
+    name: Infrastructure
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v4.0.1
+        with:
+          terraform_version: 1.16.4
+
+      - name: Check Terraform formatting
+        run: terraform fmt -check -recursive infrastructure/terraform
+
+      - name: Initialize Terraform without remote backend
+        working-directory: infrastructure/terraform
+        run: terraform init -backend=false
+
+      - name: Validate Terraform
+        working-directory: infrastructure/terraform
+        run: terraform validate

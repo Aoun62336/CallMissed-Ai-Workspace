@@ -13,3 +13,7 @@ local-results/
 **/.ruff_cache/
 .coverage
 backend/.env
+infrastructure/terraform/terraform.tfvars
+infrastructure/terraform/backend.hcl
+infrastructure/terraform/tfplan
+
