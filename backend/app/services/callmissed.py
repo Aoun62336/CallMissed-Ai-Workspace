@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import base64
 import binascii
@@ -53,30 +53,32 @@ async def request_provider(
     if payload is not None:
         kwargs["json"] = payload
     try:
-        async with HTTP_CLIENT(
-            timeout=httpx.Timeout(timeout, connect=10),
-            follow_redirects=False,
-        ) as client:
-            async with client.stream(method, settings.api_root + path, **kwargs) as response:
-                if not 200 <= response.status_code < 300:
-                    _upstream_fault(response.status_code)
-                if response.status_code == 204:
-                    return {}
-                parts: list[bytes] = []
-                size = 0
-                async for chunk in response.aiter_bytes():
-                    size += len(chunk)
-                    if size > settings.max_provider_response_bytes:
-                        raise Fault(
-                            "response_too_large",
-                            "The AI provider response exceeded the application limit.",
-                            502,
-                        )
-                    parts.append(chunk)
-                data = json.loads(b"".join(parts))
-                if not isinstance(data, dict):
-                    raise ValueError()
-                return data
+        async with (
+            HTTP_CLIENT(
+                timeout=httpx.Timeout(timeout, connect=10),
+                follow_redirects=False,
+            ) as client,
+            client.stream(method, settings.api_root + path, **kwargs) as response,
+        ):
+            if not 200 <= response.status_code < 300:
+                _upstream_fault(response.status_code)
+            if response.status_code == 204:
+                return {}
+            parts: list[bytes] = []
+            size = 0
+            async for chunk in response.aiter_bytes():
+                size += len(chunk)
+                if size > settings.max_provider_response_bytes:
+                    raise Fault(
+                        "response_too_large",
+                        "The AI provider response exceeded the application limit.",
+                        502,
+                    )
+                parts.append(chunk)
+            data = json.loads(b"".join(parts))
+            if not isinstance(data, dict):
+                raise TypeError()
+            return data
     except httpx.TimeoutException:
         raise Fault(
             "provider_timeout",
@@ -118,10 +120,10 @@ async def chat_completion(messages: list[dict[str, str]]) -> tuple[str, int]:
     try:
         message = data["choices"][0]["message"]
         if not isinstance(message, dict):
-            raise ValueError()
+            raise TypeError()
         answer = message.get("content")
         if not isinstance(answer, str):
-            raise ValueError()
+            raise TypeError()
         answer = answer.strip()
         if not answer or len(answer) > 40_000:
             raise ValueError()
@@ -147,7 +149,7 @@ async def generate_image(prompt: str) -> tuple[str, str, int, int]:
     try:
         encoded = data["data"][0]["b64_json"]
         if not isinstance(encoded, str):
-            raise ValueError()
+            raise TypeError()
         raw = base64.b64decode(encoded, validate=True)
         mime = (
             "image/png"
