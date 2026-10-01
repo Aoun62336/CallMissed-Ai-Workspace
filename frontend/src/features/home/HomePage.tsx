@@ -37,8 +37,7 @@ export function HomePage({ onNavigate }: Props) {
         <div className="home-hero-mark">AI</div>
         <h1>AI Workspace</h1>
         <p className="home-hero-sub">
-          Three AI capabilities — chat, image generation, and real-time voice —
-          unified in one interface and deployed on AWS Lambda.
+          One interface for conversational AI, image generation, and real-time voice.
         </p>
         <button className="btn primary home-cta" onClick={() => onNavigate('/chat')}>
           Get started
