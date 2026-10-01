@@ -226,7 +226,7 @@ export function VoicePage() {
       <div ref={audioContainer} className="audio-container"/>
       <div className="voice-note">
         <p><strong>Microphone permission required</strong><br/>Your browser asks for microphone access when you start. Audio is sent to CallMissed for processing.</p>
-        <p>Demo calls are limited to 3 minutes. Ending the call releases local microphone tracks and asks the provider to terminate the session.</p>
+        <p>Calls are limited to 3 minutes. Ending the call releases local microphone tracks and asks the provider to terminate the session.</p>
       </div>
     </section>
   </>;

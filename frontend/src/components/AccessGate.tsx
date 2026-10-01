@@ -44,14 +44,14 @@ export function AccessGate({ children }: Props) {
     <section className="panel access-card" aria-labelledby="access-title">
       <div className="mark access-mark">AI</div>
       <h1 id="access-title">Reviewer access</h1>
-      <p className="sub">Enter the private review passcode to use the AI assessment.</p>
+      <p className="sub">Enter your passcode to access the application.</p>
       {error && <div className="inline-error" role="alert">{error}</div>}
       {status === null && !error ? <p className="status-text">Checking access…</p> : <form onSubmit={submit}>
         <label className="field-label" htmlFor="review-passcode">Passcode</label>
         <input id="review-passcode" type="password" autoComplete="current-password" value={passcode} onChange={e => setPasscode(e.target.value)} />
         <button className="btn primary full" disabled={busy || !passcode}>{busy ? 'Checking…' : 'Continue'}</button>
       </form>}
-      <p className="privacy">This gate protects the assessment API from unintended public use.</p>
+      <p className="privacy">Access is restricted to authorised users.</p>
     </section>
   </main>;
 }

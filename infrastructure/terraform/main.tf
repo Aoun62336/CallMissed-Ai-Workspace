@@ -82,7 +82,7 @@ resource "aws_ecr_repository_policy" "app" {
 # ---------------------------------------------------------
 resource "aws_secretsmanager_secret" "runtime" {
   name                    = "${var.project_name}/runtime"
-  description             = "Runtime secrets for the CallMissed assessment."
+  description             = "Runtime secrets for the CallMissed AI Workspace."
   recovery_window_in_days = 7
 }
 

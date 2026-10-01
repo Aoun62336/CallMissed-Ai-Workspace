@@ -21,7 +21,7 @@ export function Layout({ route, onNavigate, children }: Props) {
     <aside className="sidebar">
       <div className="brand">
         <span className="mark">AI</span>
-        <div><strong>AI Workspace</strong><span className="eyebrow">CallMissed assessment</span></div>
+        <div><strong>AI Workspace</strong><span className="eyebrow">CallMissed</span></div>
       </div>
       <nav className="nav" aria-label="Main navigation">
         {items.map(({ route: target, label, icon: Icon }) => <a
@@ -31,7 +31,7 @@ export function Layout({ route, onNavigate, children }: Props) {
           onClick={(event) => { event.preventDefault(); onNavigate(target); }}
         ><Icon />{label}</a>)}
       </nav>
-      <footer>Independent assessment<br/>by Aoun Md.</footer>
+      <footer>CallMissed AI Workspace</footer>
     </aside>
     <div className="shell">
       <header className="topbar">CallMissed AI Workspace</header>
