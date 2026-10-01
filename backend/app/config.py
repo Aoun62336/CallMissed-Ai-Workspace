@@ -40,16 +40,30 @@ def _runtime_secret_values() -> dict[str, str]:
     return json.loads(response["SecretString"])
 
 
+def _secret_value(name: str, default: str = "") -> str:
+    """Return the env var if set, otherwise fall through to Secrets Manager.
+
+    Priority: env var → Secrets Manager → default.
+    This allows local development via a .env file while Lambda reads
+    sensitive values from Secrets Manager at cold-start without storing
+    them as plaintext Lambda environment variables.
+    """
+    env_val = os.getenv(name, "").strip()
+    if env_val:
+        return env_val
+    return _runtime_secret_values().get(name, default)
+
+
 @dataclass
 class Settings:
     api_root: str = os.getenv("CALLMISSED_API_ROOT", "https://api.callmissed.com/v1").rstrip("/")
-    api_key: str = _value("CALLMISSED_API_KEY")
+    api_key: str = _secret_value("CALLMISSED_API_KEY")
     chat_model: str = _value("CALLMISSED_CHAT_MODEL", "sarvam-105b-conversations")
     image_model: str = _value("CALLMISSED_IMAGE_MODEL", "sdxl-lightning")
     app_env: str = os.getenv("APP_ENV", "local").strip().lower()
     reviewer_gate_enabled: bool = _bool("REVIEWER_GATE_ENABLED", False)
-    app_session_secret: str = _value("APP_SESSION_SECRET")
-    reviewer_passcode_hash: str = _value("REVIEWER_PASSCODE_HASH")
+    app_session_secret: str = _secret_value("APP_SESSION_SECRET")
+    reviewer_passcode_hash: str = _secret_value("REVIEWER_PASSCODE_HASH")
     chat_timeout_seconds: float = 60.0
     image_timeout_seconds: float = 90.0
     voice_create_timeout_seconds: float = 30.0

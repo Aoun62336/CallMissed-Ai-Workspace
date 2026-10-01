@@ -160,7 +160,7 @@ resource "aws_lambda_function" "app" {
   architectures                  = ["x86_64"]
   memory_size                    = 1024
   timeout                        = 120
-  reserved_concurrent_executions = 2
+  reserved_concurrent_executions = -1
 
   environment {
     variables = {

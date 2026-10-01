@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import base64
 import binascii
@@ -174,9 +174,9 @@ async def create_voice_session() -> tuple[str, str, str]:
         "POST",
         "/voice/sessions",
         {
-            "system_prompt": "You are a helpful AI assistant. Answer briefly and clearly in simple English.",
-            "greeting": "Hello. How can I help?",
-            "voice": "shubh",
+            "system_prompt": "You are a professional AI assistant built on CallMissed. Answer briefly and clearly in simple English. Do not introduce yourself as TechnoMate or any product-specific assistant.",
+            "greeting": "Hello, I'm your AI assistant. How can I help you today?",
+            "voice": "meera",
             "language": "en-IN",
             "max_duration_seconds": settings.voice_max_duration_seconds,
         },
