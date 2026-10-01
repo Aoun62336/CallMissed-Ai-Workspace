@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { ChatIcon, ImageIcon, MicIcon } from '../lib/icons';
 
-export type Route = '/chat' | '/images' | '/voice';
+export type Route = '/' | '/chat' | '/images' | '/voice';
 
 type Props = {
   route: Route;
@@ -19,7 +19,15 @@ export function Layout({ route, onNavigate, children }: Props) {
   return <>
     <a href="#main" className="skip">Skip to content</a>
     <aside className="sidebar">
-      <div className="brand">
+      {/* Brand acts as a home link */}
+      <div
+        className="brand brand-link"
+        role="button"
+        tabIndex={0}
+        aria-label="Go to home"
+        onClick={() => onNavigate('/')}
+        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') onNavigate('/'); }}
+      >
         <span className="mark">AI</span>
         <div><strong>AI Workspace</strong><span className="eyebrow">CallMissed</span></div>
       </div>

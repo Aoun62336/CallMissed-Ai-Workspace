@@ -2,21 +2,23 @@ import { useEffect, useState } from 'react';
 import { AccessGate } from './components/AccessGate';
 import { Layout, type Route } from './components/Layout';
 import { ChatPage } from './features/chat/ChatPage';
+import { HomePage } from './features/home/HomePage';
 import { ImagesPage } from './features/images/ImagesPage';
 import { VoicePage } from './features/voice/VoicePage';
 
 function normalize(pathname: string): Route {
   if (pathname === '/images') return '/images';
   if (pathname === '/voice') return '/voice';
-  return '/chat';
+  if (pathname === '/chat') return '/chat';
+  return '/';
 }
 
 export function App() {
   const [route, setRoute] = useState<Route>(() => normalize(window.location.pathname));
 
   useEffect(() => {
-    if (window.location.pathname === '/' || !['/chat', '/images', '/voice'].includes(window.location.pathname)) {
-      window.history.replaceState({}, '', route);
+    if (!['/chat', '/images', '/voice', '/'].includes(window.location.pathname)) {
+      window.history.replaceState({}, '', '/');
     }
     const onPop = () => setRoute(normalize(window.location.pathname));
     window.addEventListener('popstate', onPop);
@@ -30,9 +32,22 @@ export function App() {
     window.scrollTo({ top: 0, behavior: 'auto' });
   }
 
-  return <AccessGate>
-    <Layout route={route} onNavigate={navigate}>
-      {route === '/images' ? <ImagesPage/> : route === '/voice' ? <VoicePage/> : <ChatPage/>}
-    </Layout>
-  </AccessGate>;
+  return (
+    <AccessGate>
+      <Layout route={route} onNavigate={navigate}>
+        {/* key forces CSS page-fade animation on every route change */}
+        <div key={route} className="page-fade">
+          {route === '/' ? (
+            <HomePage onNavigate={navigate} />
+          ) : route === '/images' ? (
+            <ImagesPage />
+          ) : route === '/voice' ? (
+            <VoicePage />
+          ) : (
+            <ChatPage />
+          )}
+        </div>
+      </Layout>
+    </AccessGate>
+  );
 }
