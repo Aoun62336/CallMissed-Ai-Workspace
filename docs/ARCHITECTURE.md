@@ -143,8 +143,9 @@ GET /health/live
 GET /health/ready
 ```
 
-`/health/live` confirms that the application process can answer HTTP.  
+`/health/live` confirms that the application process can answer HTTP.
 `/health/ready` confirms that required runtime configuration is present.
+
 
 Normal health checks do not make paid CallMissed requests.
 

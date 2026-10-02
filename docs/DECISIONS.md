@@ -52,7 +52,7 @@ The project is a take-home assessment. The priority is a small, reproducible, se
 
 **Decision:** Conversation history is not stored permanently. React state holds the current conversation. Refresh or New Chat clears it.
 
-**Reason:** This keeps privacy behaviour simple and truthful. The UI privacy statement matches the actual implementation.
+**Reason:** This keeps privacy behaviour simple and honest. Refreshing the page or starting a new chat clears all history. The implementation matches the behaviour.
 
 ---
 

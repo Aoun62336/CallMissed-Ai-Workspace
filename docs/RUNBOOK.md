@@ -62,9 +62,18 @@ export APP_URL="<application-url>"
 Expected:
 
 ```
-Liveness  PASS
-Readiness PASS
-Frontend  PASS
+[1/3] Liveness
+{"status":"ok"}
+PASS
+
+[2/3] Readiness
+{"status":"ready"}
+PASS
+
+[3/3] Frontend
+PASS
+
+Smoke test passed.
 ```
 
 These checks do not intentionally consume CallMissed API credits.
@@ -114,7 +123,7 @@ Record this value before manual deployment or rollback work.
 Recent logs:
 
 ```bash
-aws logs tail \
+MSYS_NO_PATHCONV=1 aws logs tail \
   /aws/lambda/callmissed-ai-workspace \
   --since 15m \
   --region us-east-1
@@ -123,7 +132,7 @@ aws logs tail \
 Follow logs:
 
 ```bash
-aws logs tail \
+MSYS_NO_PATHCONV=1 aws logs tail \
   /aws/lambda/callmissed-ai-workspace \
   --follow \
   --region us-east-1
@@ -165,7 +174,7 @@ aws lambda get-function-configuration \
 Then:
 
 ```bash
-aws logs tail \
+MSYS_NO_PATHCONV=1 aws logs tail \
   /aws/lambda/callmissed-ai-workspace \
   --since 30m \
   --region us-east-1
