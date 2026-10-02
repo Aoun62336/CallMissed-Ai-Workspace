@@ -184,7 +184,7 @@ The backend reads secrets via `boto3.client("secretsmanager")` at Lambda cold-st
 
 ## Hosting
 
-**AWS Lambda container image + Lambda Function URL**, region `ap-south-1`, deployed from ECR.
+**AWS Lambda container image + Lambda Function URL**, region `us-east-1`, deployed from ECR.
 
 The container is a standard FastAPI/uvicorn application. AWS Lambda Web Adapter allows the same HTTP application to run locally as Docker and on Lambda without rewriting routes.
 
@@ -195,7 +195,7 @@ Lambda settings:
 | Architecture | x86_64 |
 | Memory | 1024 MB |
 | Function timeout | 120 s |
-| Reserved concurrency | 2 |
+| Reserved concurrency | Unreserved (`-1`); account quota did not permit a reserved allocation |
 | Function URL auth | NONE (protected by reviewer gate) |
 | Invoke mode | BUFFERED |
 | VPC | None (outbound internet only) |
@@ -215,7 +215,6 @@ The take-home CallMissed API budget is USD 20. The application limits usage thro
 - a maximum 180-second voice session;
 - application request throttling (soft rate limit);
 - no automatic retry of ambiguous paid POST requests;
-- low Lambda reserved concurrency;
 - a server-side paid-request kill switch (`PAID_REQUESTS_ENABLED`).
 
 Routine CI uses mocked provider responses and consumes no CallMissed API budget.

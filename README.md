@@ -83,4 +83,4 @@ GitHub Actions runs on every push and pull request to `main`:
 
 ## Deployment
 
-AWS Lambda container image + Lambda Function URL (`ap-south-1`), served from ECR. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for API contracts, error handling, secrets management and infrastructure settings.
+AWS Lambda container image + Lambda Function URL (`us-east-1`), served from ECR. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for API contracts, error handling, secrets management and infrastructure settings.
