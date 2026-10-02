@@ -93,7 +93,7 @@ Success:
 
 Creates a bounded CallMissed voice session. The browser connects directly to LiveKit; audio does not pass through FastAPI.
 
-Fixed settings: `voice=shubh`, `language=en-IN`, `max_duration_seconds=180`.
+Fixed settings: `voice=meera`, `language=en-IN`, `max_duration_seconds=180`.
 
 Success:
 
@@ -172,13 +172,13 @@ This is deployment protection, not a user-account system.
 
 Local development: `backend/.env` (gitignored).
 
-Production (AWS): SSM Parameter Store SecureString:
+Production (AWS): AWS Secrets Manager secret `callmissed-ai-workspace/runtime`:
 
-- `/callmissed-ai/CALLMISSED_API_KEY`
-- `/callmissed-ai/APP_SESSION_SECRET`
-- `/callmissed-ai/REVIEWER_PASSCODE_HASH`
+- `CALLMISSED_API_KEY`
+- `APP_SESSION_SECRET`
+- `REVIEWER_PASSCODE_HASH`
 
-Secret values are never in Git, Docker build arguments or Terraform state.
+The backend reads secrets via `boto3.client("secretsmanager")` at Lambda cold-start and caches the result for the process lifetime. Secret values are never in Git, Docker build arguments or Terraform state.
 
 ---
 
@@ -201,3 +201,29 @@ Lambda settings:
 | VPC | None (outbound internet only) |
 
 Logging: CloudWatch log group with finite retention. Logs record only operational metadata — timestamp, level, request ID, route, status, duration, safe error code. No prompts, responses, keys or tokens.
+
+---
+
+## Provider budget and usage controls
+
+The take-home CallMissed API budget is USD 20. The application limits usage through:
+
+- reviewer passcode protection on deployed paid endpoints;
+- fixed tested CallMissed models;
+- one image per request;
+- bounded chat input and output;
+- a maximum 180-second voice session;
+- application request throttling (soft rate limit);
+- no automatic retry of ambiguous paid POST requests;
+- low Lambda reserved concurrency;
+- a server-side paid-request kill switch (`PAID_REQUESTS_ENABLED`).
+
+Routine CI uses mocked provider responses and consumes no CallMissed API budget.
+
+If the supplied budget is exhausted or appears incorrect, the assignment contact requested that issues be reported to karan@callmissed.com.
+
+---
+
+## LiveKit client
+
+The application does not use a separate LiveKit account or API integration. CallMissed's Voice Session API returns a temporary WebRTC URL and token, and the browser consumes those values with `livekit-client`, as described in CallMissed's official voice-client documentation. No separate LiveKit API key or credential is used.

@@ -53,7 +53,7 @@ Open `http://127.0.0.1:8000/chat`.
 
 ```bash
 cd backend
-python -m pytest -q   # 17 tests, all mocked — no provider credentials required
+python -m pytest -q   # 19 tests, all mocked — no provider credentials required
 ```
 
 ## Configuration
@@ -67,6 +67,7 @@ Copy `backend/.env.example` to `backend/.env` and set:
 | `CALLMISSED_IMAGE_MODEL` | Image model — default `sdxl-lightning` |
 | `APP_ENV` | `local` for development, `production` for deployment |
 | `REVIEWER_GATE_ENABLED` | `false` locally, `true` in production |
+| `PAID_REQUESTS_ENABLED` | `true` (default) — set `false` to disable all AI endpoints instantly |
 | `APP_SESSION_SECRET` | Session signing secret (generated automatically if blank locally) |
 
 The API key stays server-side only. It is never placed in Vite environment variables, browser code, Docker build arguments or Git.

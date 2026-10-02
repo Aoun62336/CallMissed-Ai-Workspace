@@ -38,6 +38,10 @@ export function ImagesPage() {
     if (!clean || busy) return;
     // Append the selected style modifier, if any, before sending.
     const fullPrompt = selectedStyle ? `${clean}, ${selectedStyle}` : clean;
+    if (fullPrompt.length > 1000) {
+      setError('The prompt and selected style together must be 1,000 characters or less.');
+      return;
+    }
     setBusy(true); setError('');
     try {
       const result = await api<ImageResponse>('/api/images', {

@@ -126,6 +126,16 @@ def _soft_paid_limit() -> None:
     paid_starts.append(now)
 
 
+def _check_paid_requests() -> None:
+    if not settings.paid_requests_enabled:
+        raise Fault(
+            "paid_requests_disabled",
+            "AI requests are temporarily disabled.",
+            503,
+        )
+    _soft_paid_limit()
+
+
 def _runtime_ready() -> None:
     callmissed.ensure_provider_configured()
     try:
@@ -180,7 +190,7 @@ async def access_logout(response: Response) -> dict[str, bool]:
 
 @app.post("/api/chat", dependencies=[Depends(access_required)])
 async def chat(body: ChatRequest) -> dict[str, str | int]:
-    _soft_paid_limit()
+    _check_paid_requests()
     answer, elapsed_ms = await callmissed.chat_completion(
         [{"role": item.role, "content": item.content} for item in body.messages]
     )
@@ -189,7 +199,7 @@ async def chat(body: ChatRequest) -> dict[str, str | int]:
 
 @app.post("/api/images", dependencies=[Depends(access_required)])
 async def images(body: ImageRequest) -> dict[str, str | int]:
-    _soft_paid_limit()
+    _check_paid_requests()
     encoded, mime, image_bytes, elapsed_ms = await callmissed.generate_image(body.prompt)
     return {
         "image": encoded,
@@ -201,7 +211,7 @@ async def images(body: ImageRequest) -> dict[str, str | int]:
 
 @app.post("/api/voice/sessions", dependencies=[Depends(access_required)])
 async def start_voice() -> dict[str, str | int]:
-    _soft_paid_limit()
+    _check_paid_requests()
     session_id, ws_url, token = await callmissed.create_voice_session()
     lease = create_voice_lease(session_id, settings.voice_max_duration_seconds)
     return {

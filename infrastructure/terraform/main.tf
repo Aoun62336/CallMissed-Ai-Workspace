@@ -166,6 +166,7 @@ resource "aws_lambda_function" "app" {
     variables = {
       APP_ENV                                = "production"
       REVIEWER_GATE_ENABLED                  = "true"
+      PAID_REQUESTS_ENABLED                  = "true"
       CALLMISSED_CHAT_MODEL                  = "sarvam-105b-conversations"
       CALLMISSED_IMAGE_MODEL                 = "sdxl-lightning"
       AWS_SECRET_ID                          = aws_secretsmanager_secret.runtime.arn

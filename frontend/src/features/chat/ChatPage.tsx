@@ -11,7 +11,6 @@ const EXAMPLES = [
   'Give me three best practices for production-ready Docker containers.',
 ];
 
-const CHAT_KEY = 'callmissed_chat_v1';
 
 function formatTime(ts: number): string {
   return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -72,17 +71,7 @@ function renderContent(text: string) {
 }
 
 export function ChatPage() {
-  // Initialise from localStorage so the conversation survives page refresh.
-  const [messages, setMessages] = useState<Message[]>(() => {
-    try {
-      const saved = localStorage.getItem(CHAT_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed as Message[];
-      }
-    } catch { /* ignore corrupted storage */ }
-    return [];
-  });
+  const [messages, setMessages] = useState<Message[]>([]);
 
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
@@ -100,12 +89,6 @@ export function ChatPage() {
     for (let i = messages.length - 1; i >= 0; i -= 1)
       if (messages[i].role === 'assistant') return i;
     return -1;
-  }, [messages]);
-
-  // Persist to localStorage whenever messages change.
-  useEffect(() => {
-    if (messages.length === 0) { localStorage.removeItem(CHAT_KEY); return; }
-    try { localStorage.setItem(CHAT_KEY, JSON.stringify(messages)); } catch { /* quota exceeded */ }
   }, [messages]);
 
   // Auto-scroll to the latest message after each update.

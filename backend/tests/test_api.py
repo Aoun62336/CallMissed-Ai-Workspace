@@ -16,6 +16,7 @@ def reset(monkeypatch):
     monkeypatch.setattr(m.settings, "chat_model", "sarvam-105b-conversations")
     monkeypatch.setattr(m.settings, "image_model", "sdxl-lightning")
     monkeypatch.setattr(m.settings, "reviewer_gate_enabled", False)
+    monkeypatch.setattr(m.settings, "paid_requests_enabled", True)
     monkeypatch.setattr(m.settings, "reviewer_passcode_hash", "")
     monkeypatch.setattr(m.settings, "app_env", "local")
     monkeypatch.setattr(m.settings, "app_session_secret", "test-app-secret")
@@ -253,3 +254,15 @@ def test_soft_rate_limit(client, monkeypatch):
     r = client.post("/api/chat", json={"messages": [{"role": "user", "content": "two"}]})
     assert r.status_code == 429
     assert r.json()["error"]["code"] == "application_rate_limit"
+
+
+def test_paid_requests_kill_switch(client, monkeypatch):
+    monkeypatch.setattr(m.settings, "paid_requests_enabled", False)
+    for path, body in [
+        ("/api/chat", {"messages": [{"role": "user", "content": "hi"}]}),
+        ("/api/images", {"prompt": "tree"}),
+        ("/api/voice/sessions", {}),
+    ]:
+        r = client.post(path, json=body)
+        assert r.status_code == 503, f"{path} should return 503"
+        assert r.json()["error"]["code"] == "paid_requests_disabled"

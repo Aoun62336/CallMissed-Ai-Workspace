@@ -62,6 +62,7 @@ class Settings:
     image_model: str = _value("CALLMISSED_IMAGE_MODEL", "sdxl-lightning")
     app_env: str = os.getenv("APP_ENV", "local").strip().lower()
     reviewer_gate_enabled: bool = _bool("REVIEWER_GATE_ENABLED", False)
+    paid_requests_enabled: bool = _bool("PAID_REQUESTS_ENABLED", True)
     app_session_secret: str = _secret_value("APP_SESSION_SECRET")
     reviewer_passcode_hash: str = _secret_value("REVIEWER_PASSCODE_HASH")
     chat_timeout_seconds: float = 60.0
