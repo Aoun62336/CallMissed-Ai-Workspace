@@ -1,121 +1,185 @@
 # Architecture
 
-## Application scope
+## 1. Purpose
 
-Three routes, one application:
+CallMissed AI Workspace is an independent take-home assessment application. It exposes three CallMissed capabilities:
 
-- `/chat` — multi-turn text conversation
-- `/images` — single image generation with download
-- `/voice` — browser microphone conversation with explicit start/mute/end
+- text chat;
+- image generation;
+- browser voice interaction.
 
-No permanent database, chat history, image gallery, billing page, admin dashboard, RAG, CRM or phone calling.
+The design intentionally keeps the application small. It does not include permanent application storage, user accounts, billing, CRM, RAG, phone calling, or multi-tenant administration.
 
-## API contracts
+---
+
+## 2. System overview
+
+```mermaid
+flowchart TD
+    Browser[Reviewer Browser]
+    URL[AWS Lambda Function URL]
+    App[FastAPI + React]
+    Gate[Reviewer Access Gate]
+    Chat[Chat]
+    Images[Images]
+    Voice[Voice]
+    CM[CallMissed API]
+    RTC[Provider WebRTC Service]
+    Secrets[AWS Secrets Manager]
+    Logs[CloudWatch Logs]
+
+    Browser -->|HTTPS| URL
+    URL --> App
+    App --> Gate
+    Gate --> Chat
+    Gate --> Images
+    Gate --> Voice
+    Chat --> CM
+    Images --> CM
+    Voice --> CM
+    CM -->|temporary voice URL and token| Voice
+    Voice -->|WebRTC| RTC
+    App --> Secrets
+    App --> Logs
+```
+
+---
+
+## 3. User-facing routes
+
+| Route | Purpose |
+|-------|---------|
+| `/chat` | Multi-turn AI chat |
+| `/images` | Image generation and local download |
+| `/voice` | Browser voice conversation |
+
+Unknown application routes resolve to `/chat`.
+
+---
+
+## 4. Chat flow
+
+1. The reviewer enters a message.
+2. React keeps the current conversation only in browser memory.
+3. React sends a bounded list of user and assistant messages to FastAPI.
+4. FastAPI validates the request.
+5. FastAPI adds the trusted system prompt.
+6. FastAPI calls the configured CallMissed chat model.
+7. FastAPI accepts only normal `message.content` as the answer. Provider reasoning fields are not exposed.
+8. React displays the answer.
+
+Limits:
+
+- maximum 12 messages per request;
+- maximum 2,000 characters per message;
+- maximum 12,000 characters total;
+- final request message must be from the user;
+- maximum output token setting: 1,024;
+- provider timeout: 60 seconds.
+
+No automatic retry occurs after an ambiguous provider timeout.
+
+---
+
+## 5. Image flow
+
+1. The reviewer submits a prompt.
+2. React validates the prompt and optional local style text.
+3. FastAPI validates the final prompt.
+4. FastAPI requests one 1024 × 1024 image from CallMissed.
+5. The provider returns base64 image content.
+6. FastAPI validates the decoded image type and size.
+7. React converts the result to a browser Blob.
+8. The reviewer can download the generated image locally.
+
+Limits:
+
+- maximum prompt size: 1,000 characters (including any appended style text);
+- one image per request;
+- decoded image limit: 4 MiB;
+- PNG or JPEG only;
+- provider timeout: 90 seconds.
+
+No permanent image store is used.
+
+---
+
+## 6. Voice flow
+
+1. The reviewer selects **Start conversation**.
+2. The browser requests microphone permission.
+3. FastAPI asks CallMissed to create a bounded voice session.
+4. CallMissed returns:
+   - provider session ID;
+   - temporary WebRTC URL;
+   - temporary connection token.
+5. FastAPI creates an application-signed lease tied to that session ID.
+6. The browser connects directly to the provider media service using `livekit-client`. Audio does not pass through FastAPI.
+7. Mute and unmute control the browser microphone publication.
+8. **End** releases local microphone tracks first.
+9. The browser asks FastAPI to terminate the provider session.
+10. FastAPI accepts the termination request only if the signed lease matches the provider session ID.
+
+The application does not use a separate LiveKit account or API credential. CallMissed's Voice Session API returns the temporary WebRTC URL and token consumed by `livekit-client`.
+
+Voice configuration:
+
+- `voice`: `meera`;
+- `language`: `en-IN`;
+- maximum duration: 180 seconds;
+- create timeout: 30 seconds;
+- termination timeout: 15 seconds.
+
+The provider duration cap is the final cleanup backstop if the browser closes unexpectedly.
+
+---
+
+## 7. Application API
 
 ### Health
 
-`GET /health/live` — confirms the process can answer HTTP. No provider call.
-
-```json
-{"status": "ok"}
+```
+GET /health/live
+GET /health/ready
 ```
 
-`GET /health/ready` — confirms required runtime configuration is loaded. No provider call.
+`/health/live` confirms that the application process can answer HTTP.  
+`/health/ready` confirms that required runtime configuration is present.
 
-```json
-{"status": "ready"}
+Normal health checks do not make paid CallMissed requests.
+
+### Chat
+
+```
+POST /api/chat
 ```
 
-Missing required secret returns HTTP 503 with the error envelope below.
+### Images
 
----
-
-### Chat — `POST /api/chat`
-
-Request:
-
-```json
-{
-  "messages": [
-    {"role": "user", "content": "Explain Docker simply."},
-    {"role": "assistant", "content": "Docker packages an application..."},
-    {"role": "user", "content": "Why is that useful?"}
-  ]
-}
+```
+POST /api/images
 ```
 
-Rules:
+### Voice
 
-- Browser sends only `user` and `assistant` roles. Backend owns the system prompt.
-- Maximum 12 messages per request, 2,000 characters per message, 12,000 characters total.
-- Last message must be a non-empty user message.
-- Model: `sarvam-105b-conversations`, `reasoning_effort=low`, `max_tokens=1024`, non-streaming.
-- Only `message.content` is returned. Provider `reasoning_content` is never exposed.
-- No automatic retry after ambiguous timeout.
+```
+POST  /api/voice/sessions
+DELETE /api/voice/sessions/{id}
+```
 
-Success:
+### Reviewer access
 
-```json
-{"answer": "...", "elapsed_ms": 1516}
+```
+GET  /api/access/status
+POST /api/access/login
+POST /api/access/logout
 ```
 
 ---
 
-### Images — `POST /api/images`
+## 8. Error contract
 
-Request:
-
-```json
-{"prompt": "A small green tree on a plain white background."}
-```
-
-Rules:
-
-- Prompt: 1–1,000 characters after trimming.
-- Model: `sdxl-lightning`, one 1024×1024 image, base64 response.
-- Decoded image limit: 4 MiB (below Lambda Function URL's 6 MiB ceiling after base64 expansion).
-- PNG/JPEG only. No automatic retry after ambiguous timeout.
-
-Success:
-
-```json
-{
-  "image": "<base64>",
-  "mime": "image/png",
-  "image_bytes": 87127,
-  "elapsed_ms": 4922
-}
-```
-
----
-
-### Voice — `POST /api/voice/sessions`
-
-Creates a bounded CallMissed voice session. The browser connects directly to LiveKit; audio does not pass through FastAPI.
-
-Fixed settings: `voice=meera`, `language=en-IN`, `max_duration_seconds=180`.
-
-Success:
-
-```json
-{
-  "id": "<uuid>",
-  "ws_url": "wss://...",
-  "token": "<short-lived provider connection token>",
-  "max_duration_seconds": 180,
-  "lease": "<application-signed session ownership token>"
-}
-```
-
-### Voice — `DELETE /api/voice/sessions/{id}`
-
-Requires the application-signed `lease` from session creation. Proves the browser ending the session is the browser that created it, without a server-side session database.
-
----
-
-## Error envelope
-
-All application errors:
+User-visible application failures use:
 
 ```json
 {
@@ -128,101 +192,203 @@ All application errors:
 }
 ```
 
-No stack traces, API keys, provider tokens, raw provider bodies, prompts, transcripts or base64 image data in errors or routine logs.
+Expected status categories:
 
-| Status | Meaning |
-|--------|---------|
-| 400/422 | Invalid user input |
-| 401/403 | Reviewer gate failure (when enabled) |
-| 409 | Conflicting active voice state |
-| 413 | Request or response size exceeded |
-| 429 | Application/provider throttling |
-| 502 | Upstream authentication, permission or format failure |
+| HTTP | Meaning |
+|------|---------|
+| 401/403 | Reviewer access or ownership failure |
+| 413 | Application size limit |
+| 422 | Invalid request |
+| 429 | Application or provider throttling |
+| 502 | Provider authentication, permission, service, or format failure |
+| 503 | Application configuration or paid-request kill switch |
 | 504 | Provider timeout |
 
----
-
-## Provider timeouts
-
-| Endpoint | Timeout |
-|----------|---------|
-| Chat | 60 s |
-| Images | 90 s |
-| Voice create | 30 s |
-| Voice delete | 15 s |
+The browser is not given raw provider responses, stack traces, authorization headers, or runtime secrets.
 
 ---
 
-## Reviewer gate
+## 9. Production hosting
 
-The application includes an optional access gate for public deployment, disabled locally by default (`REVIEWER_GATE_ENABLED=false`).
+Region: `us-east-1`
 
-When enabled:
-
-- Reviewer submits a passcode compared with a PBKDF2-SHA256 stored hash.
-- Plaintext passcode is never stored or logged.
-- Successful login sets a short-lived signed `HttpOnly`, `Secure`, `SameSite=Strict` cookie.
-- All paid AI endpoints require that cookie.
-
-This is deployment protection, not a user-account system.
-
----
-
-## Secrets
-
-Local development: `backend/.env` (gitignored).
-
-Production (AWS): AWS Secrets Manager secret `callmissed-ai-workspace/runtime`:
-
-- `CALLMISSED_API_KEY`
-- `APP_SESSION_SECRET`
-- `REVIEWER_PASSCODE_HASH`
-
-The backend reads secrets via `boto3.client("secretsmanager")` at Lambda cold-start and caches the result for the process lifetime. Secret values are never in Git, Docker build arguments or Terraform state.
-
----
-
-## Hosting
-
-**AWS Lambda container image + Lambda Function URL**, region `us-east-1`, deployed from ECR.
-
-The container is a standard FastAPI/uvicorn application. AWS Lambda Web Adapter allows the same HTTP application to run locally as Docker and on Lambda without rewriting routes.
+Hosting: AWS Lambda container image + AWS Lambda Web Adapter + AWS Lambda Function URL
 
 Lambda settings:
 
 | Setting | Value |
 |---------|-------|
+| Package | Container image |
 | Architecture | x86_64 |
-| Memory | 1024 MB |
-| Function timeout | 120 s |
+| Memory | 1,024 MB |
+| Timeout | 120 seconds |
 | Reserved concurrency | Unreserved (`-1`); account quota did not permit a reserved allocation |
 | Function URL auth | NONE (protected by reviewer gate) |
 | Invoke mode | BUFFERED |
-| VPC | None (outbound internet only) |
+| VPC | None |
 
-Logging: CloudWatch log group with finite retention. Logs record only operational metadata — timestamp, level, request ID, route, status, duration, safe error code. No prompts, responses, keys or tokens.
+Logging: CloudWatch log group `/aws/lambda/callmissed-ai-workspace` with 14-day retention. Logs record only operational metadata — request ID, method, route, HTTP status, elapsed time, safe error code. No prompts, responses, keys, or tokens.
 
 ---
 
-## Provider budget and usage controls
+## 10. Container
 
-The take-home CallMissed API budget is USD 20. The application limits usage through:
+The `Dockerfile` uses a multi-stage build.
 
-- reviewer passcode protection on deployed paid endpoints;
-- fixed tested CallMissed models;
+Build stage:
+
+- Node.js → `npm ci` → Vite production build.
+
+Runtime stage:
+
+- Python slim image → FastAPI → built React assets → AWS Lambda Web Adapter → non-root application user.
+
+The same application container can run:
+
+- locally with Docker;
+- through Docker Compose;
+- on AWS Lambda.
+
+---
+
+## 11. Secrets
+
+| Environment | Storage |
+|-------------|---------|
+| Local development | `backend/.env` (gitignored) |
+| Production | AWS Secrets Manager `callmissed-ai-workspace/runtime` |
+
+Production secret fields:
+
+```
+CALLMISSED_API_KEY
+APP_SESSION_SECRET
+REVIEWER_PASSCODE_HASH
+```
+
+The Lambda execution role is permitted to read the required runtime secret. The application caches the loaded secret for the process lifetime.
+
+Secret values are not stored in Git, GitHub Actions variables, Docker build arguments, frontend code, Terraform configuration, or Terraform state.
+
+---
+
+## 12. Reviewer authentication
+
+The deployed paid endpoints use a small reviewer gate.
+
+- The stored reviewer passcode is a PBKDF2-SHA256 hash.
+- Successful login creates a signed cookie with `HttpOnly`, `Secure` in production, `SameSite=Strict`, and a limited lifetime.
+
+This mechanism protects the assessment API budget. It is not an application account system.
+
+---
+
+## 13. Provider budget controls
+
+CallMissed provided a USD 20 API budget for the take-home. Controls include:
+
+- reviewer gate;
+- fixed tested provider models;
+- bounded chat requests;
 - one image per request;
-- bounded chat input and output;
-- a maximum 180-second voice session;
-- application request throttling (soft rate limit);
-- no automatic retry of ambiguous paid POST requests;
-- a server-side paid-request kill switch (`PAID_REQUESTS_ENABLED`).
+- 180-second voice limit;
+- application request throttling (soft rate limit: 12 paid requests per minute);
+- no automatic retry after ambiguous provider POST timeouts;
+- server-side `PAID_REQUESTS_ENABLED` kill switch;
+- mocked provider responses in routine CI.
 
-Routine CI uses mocked provider responses and consumes no CallMissed API budget.
-
-If the supplied budget is exhausted or appears incorrect, the assignment contact requested that issues be reported to karan@callmissed.com.
+Routine CI consumes no CallMissed API budget. If the supplied budget is exhausted or appears incorrect, the assignment contact requested that issues be reported to karan@callmissed.com.
 
 ---
 
-## LiveKit client
+## 14. Continuous integration
 
-The application does not use a separate LiveKit account or API integration. CallMissed's Voice Session API returns a temporary WebRTC URL and token, and the browser consumes those values with `livekit-client`, as described in CallMissed's official voice-client documentation. No separate LiveKit API key or credential is used.
+Pull-request and `main`-branch checks include:
+
+- Ruff;
+- pytest (19 tests, all mocked);
+- TypeScript and Vite build;
+- Trivy repository scan (vulnerabilities, secrets, misconfigurations);
+- Docker image build;
+- container health checks and frontend route smoke check;
+- Trivy container scan;
+- Terraform formatting and validation.
+
+Real provider credentials are not supplied to normal CI.
+
+---
+
+## 15. Continuous delivery
+
+A successful `main`-branch CI run triggers the deployment workflow:
+
+```text
+tested commit
+      ↓
+GitHub OIDC
+      ↓
+temporary AWS role credentials
+      ↓
+Docker build
+      ↓
+immutable ECR image
+      ↓
+resolve digest
+      ↓
+capture current Lambda image
+      ↓
+deploy new image
+      ↓
+wait for Lambda update
+      ↓
+health checks
+```
+
+If deployment health checks fail:
+
+```text
+health failure
+      ↓
+previous resolved ECR image
+      ↓
+Lambda update
+      ↓
+rollback complete
+```
+
+GitHub does not store long-lived AWS access keys. GitHub OIDC is used to obtain temporary AWS credentials.
+
+---
+
+## 16. Logging
+
+Lambda sends runtime logs to CloudWatch Logs. The application logs operational request metadata: request ID, method, route, HTTP status, elapsed time.
+
+Routine application logs do not intentionally include the CallMissed API key, reviewer passcode, prompts, generated answers, generated-image base64, voice tokens, or signed leases.
+
+---
+
+## 17. Terraform-managed resources
+
+Terraform manages:
+
+- ECR repository and lifecycle policy;
+- Secrets Manager secret metadata;
+- CloudWatch log group;
+- Lambda execution IAM role and policy;
+- Lambda function;
+- Lambda Function URL;
+- GitHub OIDC provider;
+- GitHub deployment IAM role.
+
+Terraform state is stored remotely in a private versioned S3 bucket (`callmissed-ai-workspace-tfstate-888284248249`). The state bucket was bootstrapped separately and is removed separately during final teardown.
+
+---
+
+## 18. Availability and limitations
+
+This is a single-region assessment deployment. It does not claim high availability, zero downtime, multi-region failover, or distributed rate limiting.
+
+The deployment process emphasises reproducibility, health verification, and recovery rather than high-availability infrastructure.
+
+Lambda cold starts (3–8 seconds) occur after periods of inactivity. This is a known Lambda container-image characteristic.
