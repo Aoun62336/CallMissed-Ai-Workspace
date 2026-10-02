@@ -209,7 +209,7 @@ Provider usage is deliberately limited.
 - **Test 2:** give 3 daily devops operations commands of docker
 
 Model: `sarvam-105b-conversations` (confirmed in UI)
-Context: up to 4 recent messages reused (UI display label; schema maximum is 12 messages)
+Context: 4 messages were present during this test. The client sends up to 10 previous messages, subject to the backend maximum of 12 messages per request.
 
 Expected:
 
@@ -235,7 +235,7 @@ Status: Pass
 
 ## Image live-provider smoke test
 
-Prompt: A small green tree on a plain white background.
+Prompt: A red rose
 
 Expected:
 
@@ -250,8 +250,8 @@ Observed:
 |-|-|
 | Image displayed | yes |
 | Download | yes |
-| Elapsed | not recorded |
-| Decoded size | not recorded |
+| Elapsed | 7.08 s |
+| Decoded size | 94 KB |
 
 Screenshot: `docs/evidence/deployed-image.png`
 
@@ -435,7 +435,7 @@ Screenshots: `docs/evidence/aws-lambda-UI.png`, `docs/evidence/aws-lambda-config
 
 ## Result
 
-**Final assessment result:** PASS
+**Release verification result:** PASS
 
 **Blocking issue, if any:** None.
 
